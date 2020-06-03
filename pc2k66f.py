@@ -1,3 +1,9 @@
+#----------------------------------------------------------
+# Note that we have to first execute the pc2l66f.py then  -
+# reset the k66f, so that the k66f can work normally!!!   -
+#---------------------------------------------------------
+
+
 import serial
 import time
 import paho.mqtt.client as paho
