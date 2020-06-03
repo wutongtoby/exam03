@@ -49,7 +49,7 @@ void check_addr(char *xbee_reply, char *messenger);
 //-------------------------------------------------------------------
 void send_value(Arguments *in, Reply *out);
 RPCFunction A(&send_value, "Send");
-float batch[500];
+float batch[1000];
 int times = 0;
 
 int main(void) {
@@ -97,11 +97,11 @@ int main(void) {
     xbee.printf("ATCN\r\n");
     reply_messange(xbee_reply, "exit AT mode");
     xbee.getc();
-    
+
     // start
     pc.printf("start\r\n");
 
-    acc_thread.start((callback(&RPC_queue, &EventQueue::dispatch_forever));
+    acc_thread.start(callback(&acc_queue, &EventQueue::dispatch_forever));
     RPC_thread.start(callback(&RPC_queue, &EventQueue::dispatch_forever));
 
     acc_queue.call_every(100, acc);
@@ -120,15 +120,14 @@ void xbee_rx(void)
     char buf[100];
     char outbuf[100] = {0};
     memset(buf, 0, 100);
-    
     while (xbee.readable()) {
-        // read until '\r' or 100 characters
         for (int i = 0; ; i++) {
             char recv = xbee.getc();
             if (recv == '\r') {
                 break;
             }
-            buf[i] = pc.putc(recv);
+            buf[i] = recv;
+            pc.putc(recv);
             // put whatever type in on the screen
         }
         // put the command to rpc
@@ -165,6 +164,10 @@ void check_addr(char *xbee_reply, char *messenger){
 
 
 void acc(void) {
+    // means that the batch is full! 
+    if (times == 1000) 
+        times = 0;
+
     FXOS8700CQ_readRegs(FXOS8700Q_WHOAMI, &who_am_i, 1);
     FXOS8700CQ_readRegs(FXOS8700Q_OUT_X_MSB, res, 6);
     acc16 = (res[0] << 6) | (res[1] >> 2);
@@ -183,6 +186,7 @@ void acc(void) {
 
     batch[times] = 0.1 * sqrt(axis[0] * axis[0] + axis[1] * axis[1]);
     times++;
+
 }
 
 void FXOS8700CQ_readRegs(int addr, uint8_t * data, int len) {
@@ -197,8 +201,10 @@ void FXOS8700CQ_writeRegs(uint8_t * data, int len) {
 
 void send_value(Arguments *in, Reply *out)
 {
+    // tell python that how many times k66f have sampled
+    // since last time!
     xbee.printf("%d\r\n", times);
-    printf("%d\r\n", times);
+    
     for (int i = 0; i < times; i++) {
         xbee.printf("%1.4f\r\n", batch[i]);
     }
